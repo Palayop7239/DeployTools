@@ -17,7 +17,6 @@ PROFILE=$($GUM choose "1. Docker Web Host" "2. Pterodactyl Panel Base" "3. Secur
 
 rm -rf $TMP_DIR
 
-
 clear
 
 case $PROFILE in
