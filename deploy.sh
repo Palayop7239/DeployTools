@@ -37,7 +37,7 @@ case $PROFILE in
         
     "2. Setting up Pterodactyl")
         $GUM spin --spinner dot --title "Updating stuff before going in..." -- bash -c "apt-get update -y"
-        bash <(curl -s https://pterodactyl-installer.se)
+        bash <(curl -s https://pterodactyl-installer.se) < /dev/tty
         ;;
         
     "3. Initializing UFW for basic web hosting")
