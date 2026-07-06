@@ -25,6 +25,7 @@ PROFILE=$($GUM choose \
     "1. Setting up web hosting through Docker" \
     "2. Setting up Pterodactyl" \
     "3. Initializing UFW for basic web hosting" \
+    "4. Setting up a Minecraft Server" \
     "Nothing sorry for calling ya")
 
 clear
@@ -44,12 +45,96 @@ case $PROFILE in
         $GUM spin --spinner line --title "Cooking up the wall..." -- bash -c "apt-get install ufw -y && ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw --force enable"
         echo -e "\e[32m[+] Firewall ready. Don't forget to allow the ports you actually need.\e[0m"
         ;;
-        
+    "4. Setting up a Minecraft Server")
+        if ! command -v jq >/dev/null 2>&1; then
+            $GUM spin --spinner dot --title "Grabbing jq rq..." -- bash -c "apt-get update -y && apt-get install -y jq"
+        fi
+
+        SERVER_TYPE=$($GUM choose \
+            "Paper" \
+            "Purpur" \
+            "Fabric" \
+            "NeoForge" \
+            "Vanilla" \
+            "Velocity")
+
+        MC_DIR=$($GUM input --placeholder "Where should i setup this? (e.g. /opt/servers/myserver)")
+        mkdir -p "$MC_DIR"
+
+        case $SERVER_TYPE in
+
+            "Paper"|"Velocity")
+                PROJECT=$(echo "$SERVER_TYPE" | tr '[:upper:]' '[:lower:]')
+                VERSIONS=$(curl -sL "https://api.papermc.io/v2/projects/$PROJECT" | jq -r '.versions[]' | tac)
+                MC_VERSION=$(echo "$VERSIONS" | $GUM choose)
+
+                BUILDS=$(curl -sL "https://api.papermc.io/v2/projects/$PROJECT/versions/$MC_VERSION" | jq -r '.builds[]' | tac)
+                BUILD=$(echo "$BUILDS" | $GUM choose --header "Pick a build (top = latest)")
+
+                JAR_NAME=$(curl -sL "https://api.papermc.io/v2/projects/$PROJECT/versions/$MC_VERSION/builds/$BUILD" | jq -r '.downloads.application.name')
+
+                $GUM spin --spinner dot --title "Pulling $PROJECT $MC_VERSION build $BUILD..." -- \
+                    curl -sL -o "$MC_DIR/server.jar" "https://api.papermc.io/v2/projects/$PROJECT/versions/$MC_VERSION/builds/$BUILD/downloads/$JAR_NAME"
+                ;;
+
+            "Purpur")
+                VERSIONS=$(curl -sL "https://api.purpurmc.org/v2/purpur" | jq -r '.versions[]' | tac)
+                MC_VERSION=$(echo "$VERSIONS" | $GUM choose)
+
+                BUILD=$(curl -sL "https://api.purpurmc.org/v2/purpur/$MC_VERSION" | jq -r '.builds.latest')
+
+                $GUM spin --spinner dot --title "Pulling Purpur $MC_VERSION build $BUILD..." -- \
+                    curl -sL -o "$MC_DIR/server.jar" "https://api.purpurmc.org/v2/purpur/$MC_VERSION/$BUILD/download"
+                ;;
+
+            "Fabric")
+                MC_VERSIONS=$(curl -sL "https://meta.fabricmc.net/v2/versions/game" | jq -r '.[] | select(.stable==true) | .version')
+                MC_VERSION=$(echo "$MC_VERSIONS" | $GUM choose)
+
+                LOADER_VERSION=$(curl -sL "https://meta.fabricmc.net/v2/versions/loader" | jq -r '.[0].version')
+                INSTALLER_VERSION=$(curl -sL "https://meta.fabricmc.net/v2/versions/installer" | jq -r '.[0].version')
+
+                $GUM spin --spinner dot --title "Pulling Fabric $MC_VERSION (loader $LOADER_VERSION)..." -- \
+                    curl -sL -o "$MC_DIR/server.jar" \
+                    "https://meta.fabricmc.net/v2/versions/loader/$MC_VERSION/$LOADER_VERSION/$INSTALLER_VERSION/server/jar"
+                ;;
+
+            "NeoForge")
+                VERSIONS=$(curl -sL "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge" | jq -r '.versions[]' | tac)
+                NEO_VERSION=$(echo "$VERSIONS" | $GUM choose --header "NeoForge version (e.g. 21.1.x)")
+
+                $GUM spin --spinner dot --title "Pulling NeoForge $NEO_VERSION installer..." -- \
+                    curl -sL -o "$MC_DIR/installer.jar" \
+                    "https://maven.neoforged.net/releases/net/neoforged/neoforge/$NEO_VERSION/neoforge-$NEO_VERSION-installer.jar"
+
+                echo -e "\e[33m[!] Installer downloaded. Run it yourself with:\e[0m"
+                echo "    cd $MC_DIR && java -jar installer.jar --installServer"
+                ;;
+
+            "Vanilla")
+                MANIFEST=$(curl -sL "https://launchermeta.mojang.com/mc/game/version_manifest.json")
+                VERSIONS=$(echo "$MANIFEST" | jq -r '.versions[] | select(.type=="release") | .id')
+                MC_VERSION=$(echo "$VERSIONS" | $GUM choose)
+
+                VERSION_URL=$(echo "$MANIFEST" | jq -r --arg V "$MC_VERSION" '.versions[] | select(.id==$V) | .url')
+                SERVER_URL=$(curl -sL "$VERSION_URL" | jq -r '.downloads.server.url')
+
+                $GUM spin --spinner dot --title "Pulling Vanilla $MC_VERSION..." -- \
+                    curl -sL -o "$MC_DIR/server.jar" "$SERVER_URL"
+                ;;
+        esac
+
+        if [ -f "$MC_DIR/server.jar" ]; then
+            echo "eula=true" > "$MC_DIR/eula.txt"
+            echo -e "\e[32m[+] $SERVER_TYPE server dropped in $MC_DIR, eula pre-signed. Fire it up whenever.\e[0m"
+        fi
+        ;;
     "Nothing sorry for calling ya"|"")
         echo -e "\e[31m[-] Going back to sleep. Don't bring me for nothing bruh.\e[0m"
         rm -rf $TMP_DIR
         exit 0
         ;;
+    
 esac
 
 
