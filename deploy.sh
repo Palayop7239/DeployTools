@@ -68,6 +68,7 @@ case $PROFILE in
             "Velocity" < "$GUM_TTY")
 
         MC_DIR=$($GUM input --placeholder "Where should this live? (e.g. /opt/mc/tbs)" < "$GUM_TTY")
+        [[ -z "$MC_DIR" ]] && MC_DIR="/opt/minecraft"
         mkdir -p "$MC_DIR"
 
         case $SERVER_TYPE in
@@ -94,13 +95,13 @@ case $PROFILE in
                 ;;
 
             "Purpur")
-                VERSIONS=$(curl -sL "https://api.purpurmc.org/v2/purpur" | jq -r '.versions[]' | tac)
+                VERSIONS=$(curl -sL "https://api.purpurmc.org/v2/purpur" | jq -r '.versions[]' | sort -Vr)
                 MC_VERSION=$(echo "$VERSIONS" | $GUM choose < "$GUM_TTY")
 
                 BUILD=$(curl -sL "https://api.purpurmc.org/v2/purpur/$MC_VERSION" | jq -r '.builds.latest')
 
                 $GUM spin --spinner dot --title "Pulling Purpur $MC_VERSION build $BUILD..." -- \
-                    curl -sL -o "$MC_DIR/server.jar" "https://api.purpurmc.org/v2/purpur/$MC_VERSION/$BUILD/download"
+                    curl -fL --retry 3 --retry-delay 2 -o "$MC_DIR/server.jar" "https://api.purpurmc.org/v2/purpur/$MC_VERSION/$BUILD/download"
                 ;;
 
             "Fabric")
@@ -116,7 +117,7 @@ case $PROFILE in
                 ;;
 
             "NeoForge")
-                VERSIONS=$(curl -sL "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge" | jq -r '.versions[]' | tac)
+                VERSIONS=$(curl -sL "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge" | jq -r '.versions[]' | sort -Vr)
                 NEO_VERSION=$(echo "$VERSIONS" | $GUM choose --header "NeoForge version (e.g. 21.1.x)" < "$GUM_TTY")
 
                 $GUM spin --spinner dot --title "Pulling NeoForge $NEO_VERSION installer..." -- \
@@ -136,7 +137,7 @@ case $PROFILE in
                 SERVER_URL=$(curl -sL "$VERSION_URL" | jq -r '.downloads.server.url')
 
                 $GUM spin --spinner dot --title "Pulling Vanilla $MC_VERSION..." -- \
-                    curl -sL -o "$MC_DIR/server.jar" "$SERVER_URL"
+                    curl -fL --retry 3 --retry-delay 2 -o "$MC_DIR/server.jar" "$SERVER_URL"
                 ;;
         esac
 
