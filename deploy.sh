@@ -71,7 +71,6 @@ case $PROFILE in
         mkdir -p "$MC_DIR"
 
         case $SERVER_TYPE in
-
             "Paper"|"Velocity")
                 PROJECT=$(echo "$SERVER_TYPE" | tr '[:upper:]' '[:lower:]')
                 UA="palas-deploy-tool/1.0 (https://github.com/Palayop7239/DeployTools)"
